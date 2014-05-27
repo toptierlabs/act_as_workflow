@@ -1,0 +1,13 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  process_version_id: 
+  priority: 1
+  owner: 1
+  when_complete_invalidate_nodes: 1
+
+two:
+  process_version_id: 
+  priority: 1
+  owner: 1
+  when_complete_invalidate_nodes: 1

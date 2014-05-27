@@ -1,0 +1,9 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  workflow_process_graph_node_id: 
+  end_node: 1
+
+two:
+  workflow_process_graph_node_id: 
+  end_node: 1
