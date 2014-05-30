@@ -1,0 +1,11 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  process_graph_node_id: 
+  validator_type: 1
+  validator_content: MyText
+
+two:
+  process_graph_node_id: 
+  validator_type: 1
+  validator_content: MyText

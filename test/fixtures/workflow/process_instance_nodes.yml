@@ -1,0 +1,13 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  process_instance_id: 
+  process_graph_node_id_id: 
+  completed_at: 
+  canceled_at: 
+
+two:
+  process_instance_id: 
+  process_graph_node_id_id: 
+  completed_at: 
+  canceled_at: 
