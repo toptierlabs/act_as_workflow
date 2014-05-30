@@ -14,16 +14,19 @@ module Workflow
       uniqueness: { scope: :process_id }
 
     class << self
-      def find_version_instance_for(user, role, entity)
-        instance = includes(:process_instances).where(
-          workflow_process_instances: {
-            user_id:     user.id,
-            role:        role,
-            entity_type: entity.class.name,
-            entity_id:   entity.id
-          }
-        )
-        instance.present? ? instance : last.instance_for(user, entity)
+      def find_version_instances_for(user, role, entity)
+        process_version = first
+        sql_params = {
+          entity_type: entity.class.name,
+          entity_id:   entity.id
+        }
+        if (role == :buyer)
+          sql_params[:user_id] = user.id
+          sql_params[:role] = role
+        end
+        instances = process_version.process_instances.where(sql_params)
+
+        instances.present? ? instances : [last.create_instance_for(user, role, entity)]
       end
     end
 
@@ -33,9 +36,10 @@ module Workflow
       end
     end
 
-    def instance_for(user, entity)
-      process_instances.find_or_create_by(
+    def create_instance_for(user, role, entity)
+      process_instances.create(
         user_id:     user.id,
+        role:        role,
         entity_type: entity.class.name,
         entity_id:   entity.id
       )

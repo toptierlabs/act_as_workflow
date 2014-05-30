@@ -1,5 +1,7 @@
 module Workflow
   class ProcessInstanceNode < ActiveRecord::Base
+    scope :completed,
+      -> { where('completed_at IS NOT NULL') }
     belongs_to :process_instance
     belongs_to :process_graph_node
 
@@ -36,10 +38,12 @@ module Workflow
       completed_at.present?
     end
 
-    def complete(options = {})
+    def complete(owner_params = nil, options = {})
+      owner_params ||= owner
       user_authorized = options[:user_authorized] || false
       return false \
-        if completed? || !validate_owner ||
+        if completed? || !validate_owner(owner_params) ||
+          !validates_conditions(user_authorized: user_authorized) ||
           !validates_preconditions(user_authorized: user_authorized)
 
       if complete_globally?
@@ -50,13 +54,16 @@ module Workflow
         update_column(:completed_at, DateTime.now)
       end
       successor_nodes.each(&:complete)
+      true
     end
 
-    def next_nodes
-      if self.completed? || !validate_owner
-        successor_nodes.map(&:next_nodes).flatten!
-      elsif validates_preconditions
-        [process_graph_node]
+    def next_nodes(options = {})
+      owner_params = options[:owner] || owner
+      return [] unless validates_preconditions
+      if self.completed? || !validate_owner(owner_params)
+        successor_nodes.map{ |v| v.next_nodes(options) }.flatten!
+      elsif validate_owner(owner_params)
+        [self]
       else
         []
       end
@@ -70,10 +77,24 @@ module Workflow
       )
     end
 
+    def validates_conditions(options = {})
+      validates_requisites(
+        process_graph_node_requisites.conditions,
+        options
+      )
+    end
+
     def validates_preconditions(options = {})
+      validates_requisites(
+        process_graph_node_requisites.preconditions,
+        options
+      )
+    end
+
+    def validates_requisites(requsite_set, options)
       user_authorized = options[:user_authorized] || false
       result = true
-      process_graph_node_requisites.preconditions.each do |requisite|
+      requsite_set.each do |requisite|
         result = requisite.evaluate_requisite_for(
           instance_entity,
           self,
@@ -85,8 +106,9 @@ module Workflow
       result
     end
 
-    def validate_owner
-      instance_role == owner
+
+    def validate_owner(owner_params = nil)
+      (owner_params == owner) || (owner == :all)
     end
   end
 end

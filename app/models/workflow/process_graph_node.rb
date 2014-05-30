@@ -20,7 +20,9 @@ module Workflow
 
     has_many :process_instance_nodes, inverse_of: :process_graph_node
 
-    serialize :owner, Symbol
+    def owner
+      self[:owner].to_sym unless self[:owner].nil?
+    end
 
     def create_instance_node_for(instance)
       node_for instance
@@ -30,8 +32,23 @@ module Workflow
     end
 
     def node_for(instance)
+      completed_at = date_node_completed_for_instance(instance)
+
       process_instance_nodes
-        .find_or_create_by(process_instance_id: instance.id)
+        .find_or_create_by(
+          process_instance_id: instance.id,
+          completed_at: completed_at
+        )
+    end
+
+    private
+
+    def date_node_completed_for_instance(instance)
+      if complete_globally?        
+        node =
+          process_instance_nodes.where(process_instance_id: instance.id).first
+        completed_at = node.completed_at
+      end
     end
   end
 end

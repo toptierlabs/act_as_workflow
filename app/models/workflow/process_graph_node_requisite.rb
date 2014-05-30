@@ -33,7 +33,7 @@ module Workflow
       user_authorized = options[:user_authorized] || false
       case validator_type
       when :children_completed
-        return node_instance.children_nodes.completed.blank?
+        return node_instance.children_nodes.completed == node_instance.children_nodes
       when :user
         return user_authorized
       when :query
