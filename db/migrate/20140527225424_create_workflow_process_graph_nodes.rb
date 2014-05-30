@@ -3,8 +3,8 @@ class CreateWorkflowProcessGraphNodes < ActiveRecord::Migration
     create_table :workflow_process_graph_nodes do |t|
       t.references :process_version, index: true
       t.integer :priority
-      t.integer :owner
-      t.boolean :complete_globally?
+      t.string :owner
+      t.boolean :complete_globally
       t.integer :when_complete_invalidate_nodes
 
       t.timestamps

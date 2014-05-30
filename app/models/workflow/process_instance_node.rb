@@ -40,7 +40,7 @@ module Workflow
       user_authorized = options[:user_authorized] || false
       return false \
         if completed? || !validate_owner ||
-          !validates_preconditions(user_authorized: user_authorized)
+          !validates_conditions(user_authorized: user_authorized)
 
       if complete_globally?
         # only the nodes with the same definition
@@ -53,9 +53,10 @@ module Workflow
     end
 
     def next_nodes
-      if self.completed? || !validate_owner
+      [] unless validates_preconditions
+      if (self.completed? || !validate_owner)
         successor_nodes.map(&:next_nodes).flatten!
-      elsif validates_preconditions
+      elsif validate_owner
         [process_graph_node]
       else
         []
@@ -70,10 +71,24 @@ module Workflow
       )
     end
 
+    def validates_conditions(options = {})
+      validates_requisites(
+        process_graph_node_requisites.conditions,
+        options
+      )
+    end
+
     def validates_preconditions(options = {})
+      validates_requisites(
+        process_graph_node_requisites.preconditions,
+        options
+      )
+    end
+
+    def validates_requisites(requsite_set, options)
       user_authorized = options[:user_authorized] || false
       result = true
-      process_graph_node_requisites.preconditions.each do |requisite|
+      requsite_set.each do |requisite|
         result = requisite.evaluate_requisite_for(
           instance_entity,
           self,
@@ -85,8 +100,9 @@ module Workflow
       result
     end
 
+
     def validate_owner
-      instance_role == owner
+      res = (instance_role == owner) || (owner == :all)
     end
   end
 end

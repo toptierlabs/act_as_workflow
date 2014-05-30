@@ -15,7 +15,7 @@ module Workflow
 
     class << self
       def find_version_instance_for(user, role, entity)
-        instance = includes(:process_instances).where(
+        instance = includes(:process_instances).find_by(
           workflow_process_instances: {
             user_id:     user.id,
             role:        role,
@@ -23,7 +23,7 @@ module Workflow
             entity_id:   entity.id
           }
         )
-        instance.present? ? instance : last.instance_for(user, entity)
+        instance.present? ? instance.process_instances.first : last.create_instance_for(user, role, entity)
       end
     end
 
@@ -33,9 +33,10 @@ module Workflow
       end
     end
 
-    def instance_for(user, entity)
-      process_instances.find_or_create_by(
+    def create_instance_for(user, role, entity)
+      process_instances.create(
         user_id:     user.id,
+        role:        role,
         entity_type: entity.class.name,
         entity_id:   entity.id
       )
