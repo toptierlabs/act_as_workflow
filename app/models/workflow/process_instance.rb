@@ -10,11 +10,17 @@ module Workflow
 
     after_create :initialize_instance_node
 
-    delegate :next_nodes, :complete, to: :dummy_instance_node
+    delegate :next_nodes, :complete, :completed_nodes, to: :dummy_instance_node
 
     # returns the role value casted to Symbol
     def role
       self[:role].to_sym
+    end
+
+    def cancel_instance_nodes(nodes_params)
+      nodes_params ||= []
+      nodes = process_instance_nodes.where(nodes_params)
+      nodes.each(&:cancel_node)
     end
 
     private

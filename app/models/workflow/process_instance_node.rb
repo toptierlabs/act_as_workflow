@@ -2,6 +2,8 @@ module Workflow
   class ProcessInstanceNode < ActiveRecord::Base
     scope :completed,
       -> { where('completed_at IS NOT NULL') }
+    scope :uncompleted,
+      -> { where('completed_at IS NULL') }
     belongs_to :process_instance
     belongs_to :process_graph_node
 
@@ -24,9 +26,10 @@ module Workflow
 
     delegate :owner,
       :priority,
-      :when_complete_invalidate_nodes,
-      :process_graph_node_requisites,
       :complete_globally?,
+      :when_complete_invalidate_nodes,
+      :validates_preconditions_for_instance,
+      :validates_conditions_for_instance,
       to: :process_graph_node
 
     delegate :entity, :role, to: :process_instance, prefix: :instance
@@ -38,29 +41,27 @@ module Workflow
       completed_at.present?
     end
 
+    def canceled?
+      canceled_at.present?
+    end
+
     def complete(owner_params = nil, options = {})
       owner_params ||= owner
       user_authorized = options[:user_authorized] || false
-      return false \
-        if completed? || !validate_owner(owner_params) ||
-          !validates_conditions(user_authorized: user_authorized) ||
-          !validates_preconditions(user_authorized: user_authorized)
 
-      if complete_globally?
-        # only the nodes with the same definition
-        instance_nodes_with_same_definition.update_all(:completed_at, DateTime.now)
+      return false unless can_be_completed_by?(owner_params, options)
 
-      else
-        update_column(:completed_at, DateTime.now)
-      end
+      complete_instance_node
+      process_instance.cancel_instance_nodes(when_complete_invalidate_nodes)
+
       successor_nodes.each(&:complete)
       true
     end
 
     def next_nodes(options = {})
       owner_params = options[:owner] || owner
-      return [] unless validates_preconditions
-      if self.completed? || !validate_owner(owner_params)
+      return [] if (!completed? && validates_preconditions_for_instance(self)) || canceled?
+      if self.completed? || (self.completed?  && !validate_owner(owner_params))
         successor_nodes.map{ |v| v.next_nodes(options) }.flatten!
       elsif validate_owner(owner_params)
         [self]
@@ -69,46 +70,54 @@ module Workflow
       end
     end
 
-    private
-
-    def instance_nodes_with_same_definition
-      instance_entity.process_instance_nodes.where(
-        process_graph_node: process_graph_node_id
-      )
-    end
-
-    def validates_conditions(options = {})
-      validates_requisites(
-        process_graph_node_requisites.conditions,
-        options
-      )
-    end
-
-    def validates_preconditions(options = {})
-      validates_requisites(
-        process_graph_node_requisites.preconditions,
-        options
-      )
-    end
-
-    def validates_requisites(requsite_set, options)
-      user_authorized = options[:user_authorized] || false
-      result = true
-      requsite_set.each do |requisite|
-        result = requisite.evaluate_requisite_for(
-          instance_entity,
-          self,
-          user_authorized: user_authorized
-        )
-        # If the result is false, then it goes out from the each block
-        break unless result
+    def completed_nodes(options = {})
+      owner_params = options[:owner] || owner
+      if self.completed?
+        result = successor_nodes.map{ |v| v.completed_nodes(options) }
+        result << self
+        result
+      else
+        []
       end
-      result
     end
-
 
     def validate_owner(owner_params = nil)
       (owner_params == owner) || (owner == :all)
+    end
+
+    def can_be_completed_by?(owner_params = nil, options = {})
+      user_authorized = options[:user_authorized] || false
+      !completed? && validate_owner(owner_params) && !canceled? &&
+        validates_preconditions_for_instance(self, user_authorized: user_authorized) &&
+        validates_conditions_for_instance(self, user_authorized: user_authorized)
+    end
+
+    def complete_instance_node
+      if complete_globally?
+        # updates nodes with the same graph definition
+        # related to the same entity
+        nodes = entity_nodes_with_the_same_definition.uncompleted
+        nodes.update_all(completed_at: DateTime.now)
+      else
+        update_column(:completed_at, DateTime.now)
+      end
+    end
+
+    def cancel_node
+      if complete_globally?
+        # updates nodes with the same graph definition
+        # related to the same entity
+        nodes = entity_nodes_with_the_same_definition.uncompleted
+        nodes.update_all(canceled_at: DateTime.now)
+      else
+        update_column(:canceled_at, DateTime.now)
+      end
+    end
+
+    def entity_nodes_with_the_same_definition
+      instance_entity.process_instance_nodes.where(
+        process_graph_node_id: process_graph_node_id
+      )
     end
   end
 end

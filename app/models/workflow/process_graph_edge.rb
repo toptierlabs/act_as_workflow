@@ -9,11 +9,9 @@ module Workflow
 
     def create_instance_edge_for(instance)
       process_instance_edges.create(
-        process_instance_node_id:
-          process_graph_node.node_for(instance).id,
-        process_graph_edge_id: id,
-        end_instance_node_id:
-          end_node.node_for(instance).id
+        process_instance_node_id: process_graph_node.node_for(instance).id,
+        process_graph_edge_id:    id,
+        end_instance_node_id:     end_node.node_for(instance).id
       )
     end
   end

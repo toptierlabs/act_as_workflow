@@ -13,7 +13,8 @@ module Workflow
        user: 1,
        query: 2,
        custom_logic: 3,
-       other_nodes_completed: 4
+       other_nodes_completed: 4,
+       validation_set: 5
     }
 
     validates :validator_type, inclusion: { in: VALIDATOR_TYPES.keys }
@@ -29,20 +30,40 @@ module Workflow
       VALIDATOR_TYPES.key self[:validator_type]
     end
 
-    def evaluate_requisite_for(instance_entity, node_instance, options = {})
+    # TODO create a class for each validator. Each of those class will
+    # be created inside a module called Validators.
+    # Also, each class must implement the methods validate(args*)
+    def evaluate_requisite_for(node_instance, options = {})
       user_authorized = options[:user_authorized] || false
       case validator_type
       when :children_completed
-        return node_instance.children_nodes.completed == node_instance.children_nodes
+        complete_children_ids = node_instance.children_nodes.completed.pluck(:id)
+        children_ids = node_instance.children_nodes.pluck(:id)
+        if (children_ids - complete_children_ids).blank?
+          return true
+        else
+          node_instance.errors[:base] << 'previous steps must be completed'
+          return false
+        end
       when :user
-        return user_authorized
+        if user_authorized
+          return true
+        else
+          node_instance.errors[:base] << 'not authorized by the user'
+          return false
+        end
       when :query
         # This should have limit 1 by default
         records_array =
           ActiveRecord::Base.connection.execute(validator_content)
         return records_array.present?
       when :custom_logic
-        return instance_entity.send validator_content
+        if node_instance.instance_entity.send(validator_content)
+          return true
+        else
+          node_instance.errors[:base] << "#{validator_content} is not satisfied"
+          return false
+        end
       when :other_nodes_completed
         node_ids = validator_content.split(',').map(&:to_i).uniq
         nodes_length = node_instance.instance.process_instance_nodes.where(
@@ -50,7 +71,8 @@ module Workflow
           node_ids
         ).count
         return node_ids.length == nodes_length
-      else        
+      else
+        return true       
       end
     end
   end

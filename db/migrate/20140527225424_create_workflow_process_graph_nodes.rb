@@ -5,7 +5,16 @@ class CreateWorkflowProcessGraphNodes < ActiveRecord::Migration
       t.integer :priority
       t.string :owner
       t.boolean :complete_globally
-      t.integer :when_complete_invalidate_nodes
+      t.string :when_complete_invalidate_nodes
+
+      t.string :name
+      t.text :description
+      t.string :url
+      t.string :url_text
+      t.string :img_url
+      t.string :fail_text
+      t.string :more_info
+      t.string :more_info_text
 
       t.timestamps
     end
